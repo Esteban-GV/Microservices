@@ -1,6 +1,5 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-export JAVA_HOME=/home/esteban-gv/Descargas/jdk-21_linux-x64_bin/jdk-21.0.12
 echo "Compilando proyecto..."
 ./mvnw clean package -DskipTests
 
