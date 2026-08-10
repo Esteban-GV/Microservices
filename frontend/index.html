@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Login / Registro - Microservicios</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; }
+        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 320px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; }
+        button:hover { background: #0056b3; }
+        .error { color: red; font-size: 0.9rem; margin-top: 10px; }
+        .success { color: green; font-size: 0.9rem; margin-top: 10px; }
+        .toggle-link { text-align: center; margin-top: 15px; font-size: 0.9rem; }
+        .toggle-link a { color: #007bff; cursor: pointer; text-decoration: underline; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <!-- FORMULARIO DE LOGIN -->
+        <div id="loginSection">
+            <h2 id="formTitle">Iniciar Sesión</h2>
+            <form id="loginForm">
+                <label for="loginUsername">Usuario:</label>
+                <input type="text" id="loginUsername" required>
+                
+                <label for="loginPassword">Contraseña:</label>
+                <input type="password" id="loginPassword" required>
+                
+                <button type="submit">Entrar</button>
+            </form>
+            <div id="loginError" class="error"></div>
+            <div class="toggle-link">
+                ¿No tienes cuenta? <a onclick="toggleForms()">Regístrate aquí</a>
+            </div>
+        </div>
+
+        <!-- FORMULARIO DE REGISTRO -->
+        <div id="registerSection" class="hidden">
+            <h2>Crear Cuenta</h2>
+            <form id="registerForm">
+                <label for="regUsername">Usuario:</label>
+                <input type="text" id="regUsername" required>
+                
+                <label for="regPassword">Contraseña:</label>
+                <input type="password" id="regPassword" required>
+                
+                <button type="submit" style="background: #28a745;">Registrarse</button>
+            </form>
+            <div id="regError" class="error"></div>
+            <div id="regSuccess" class="success"></div>
+            <div class="toggle-link">
+                ¿Ya tienes cuenta? <a onclick="toggleForms()">Inicia sesión</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const AUTH_URL = 'http://localhost:8080/auth';
+
+        // Si ya existe token, redirige directo a tareas
+        if (localStorage.getItem('jwt_token')) {
+            window.location.href = 'todos.html';
+        }
+
+        // Cambiar visualmente entre Login y Registro
+        function toggleForms() {
+            const loginSec = document.getElementById('loginSection');
+            const regSec = document.getElementById('registerSection');
+            loginSec.classList.toggle('hidden');
+            regSec.classList.toggle('hidden');
+        }
+
+        // Lógica del Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorMsg = document.getElementById('loginError');
+            errorMsg.textContent = '';
+
+            try {
+                const response = await fetch(`${AUTH_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) throw new Error('Credenciales inválidas');
+
+                const data = await response.json();
+                const token = data.token || data.accessToken; 
+
+                if (token) {
+                    localStorage.setItem('jwt_token', token);
+                    window.location.href = 'todos.html';
+                } else {
+                    throw new Error('No se recibió el token');
+                }
+            } catch (error) {
+                errorMsg.textContent = error.message;
+            }
+        });
+
+        // Lógica del Registro
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            const errorMsg = document.getElementById('regError');
+            const successMsg = document.getElementById('regSuccess');
+            errorMsg.textContent = '';
+            successMsg.textContent = '';
+
+            try {
+                const response = await fetch(`${AUTH_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) throw new Error('Error al registrar usuario (quizá ya exista)');
+
+                successMsg.textContent = '¡Registro exitoso! Ahora puedes iniciar sesión.';
+                setTimeout(() => {
+                    toggleForms(); // Regresa automáticamente al login tras registrarse
+                }, 1500);
+            } catch (error) {
+                errorMsg.textContent = error.message;
+            }
+        });
+    </script>
+</body>
+</html>

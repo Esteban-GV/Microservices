@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Tareas - TODOs App</title>
+    <!-- Tailwind CSS CDN para un diseño moderno -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-100 to-indigo-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 border border-slate-100">
+        
+        <!-- Cabecera -->
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Mis Tareas</h1>
+                <p class="text-xs text-slate-500">Organiza tu día eficientemente</p>
+            </div>
+            <button id="logoutBtn" class="bg-red-50 hover:bg-red-100 text-red-600 font-medium text-xs px-3 py-2 rounded-lg transition-colors cursor-pointer border border-red-200">
+                Cerrar Sesión
+            </button>
+        </div>
+        
+        <!-- Formulario para agregar tarea -->
+        <form id="todoForm" class="flex gap-2 mb-6">
+            <input 
+                type="text" 
+                id="todoTitle" 
+                placeholder="¿Qué necesitas hacer hoy?" 
+                required
+                class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+            >
+            <button 
+                type="submit" 
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-indigo-200 cursor-pointer flex items-center justify-center"
+            >
+                Agregar
+            </button>
+        </form>
+
+        <!-- Lista de tareas -->
+        <div class="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+            <ul id="todoList" class="space-y-2.5">
+                <!-- Se inyectarán dinámicamente -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const TODOS_API_URL = 'http://localhost:8081/api/todos';
+        const token = localStorage.getItem('jwt_token');
+
+        // Seguridad de vista: si no hay token, redirigir al login
+        if (!token) {
+            window.location.href = 'index.html';
+        }
+
+        function getHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        async function fetchTodos() {
+            try {
+                const response = await fetch(TODOS_API_URL, { headers: getHeaders() });
+                
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('jwt_token');
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                const todos = await response.json();
+                renderTodos(todos);
+            } catch (error) {
+                console.error("Error al conectar con el microservicio de TODOs:", error);
+            }
+        }
+
+        function renderTodos(todos) {
+            const todoList = document.getElementById('todoList');
+            todoList.innerHTML = '';
+
+            if (!todos || todos.length === 0) {
+                todoList.innerHTML = `
+                    <div class="text-center py-8 text-slate-400 text-sm">
+                        No tienes tareas pendientes. ¡Agrega una arriba! 🎉
+                    </div>
+                `;
+                return;
+            }
+
+            todos.forEach(todo => {
+                const li = document.createElement('li');
+                li.className = "flex items-center justify-between p-3.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/60 rounded-xl transition-all shadow-xs group";
+                li.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <input 
+                            type="checkbox" 
+                            ${todo.completed ? 'checked' : ''} 
+                            onclick="toggleTodo(${todo.id}, ${!todo.completed})" 
+                            class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                        >
+                        <span class="text-sm truncate transition-colors ${todo.completed ? 'line-through text-slate-400 font-normal' : 'text-slate-700 font-medium'}">
+                            ${todo.title}
+                        </span>
+                    </div>
+                    <button 
+                        onclick="deleteTodo(${todo.id})" 
+                        class="text-slate-400 hover:text-red-600 text-xs font-medium px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                        Eliminar
+                    </button>
+                `;
+                todoList.appendChild(li);
+            });
+        }
+
+        document.getElementById('todoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const titleInput = document.getElementById('todoTitle');
+            const title = titleInput.value.trim();
+            if (!title) return;
+
+            try {
+                const response = await fetch(TODOS_API_URL, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ title, description: title })
+                });
+
+                if (response.ok) {
+                    titleInput.value = '';
+                    fetchTodos();
+                }
+            } catch (error) {
+                console.error("Error creando tarea", error);
+            }
+        });
+
+        async function deleteTodo(id) {
+            try {
+                const response = await fetch(`${TODOS_API_URL}/${id}`, {
+                    method: 'DELETE',
+                    headers: getHeaders()
+                });
+                if (response.ok) fetchTodos();
+            } catch (error) {
+                console.error("Error eliminando tarea", error);
+            }
+        }
+
+        async function toggleTodo(id, completed) {
+            try {
+                // Compatible con tu PatchMapping toggle o actualización genérica
+                await fetch(`${TODOS_API_URL}/${id}/toggle`, {
+                    method: 'PATCH',
+                    headers: getHeaders()
+                });
+                fetchTodos();
+            } catch (error) {
+                console.error("Error actualizando estado de la tarea", error);
+            }
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('jwt_token');
+            window.location.href = 'index.html';
+        });
+
+        // Inicializar carga de tareas al abrir
+        fetchTodos();
+    </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+services:
+  todos-db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: todos_user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: microservice_todos
+    ports:
+      - "5433:5432"
+    volumes:
+      - todos_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todos_user -d microservice_todos"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  todos_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      todos-db:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      - DATABASE_USERNAME=todos_user
+      - DATABASE_PASSWORD=pass
+      # ⚠️ Debe ser IDÉNTICO al JWT_SECRET del docker-compose.yml de auth-service
+      - JWT_SECRET=VGhpcyBJcyBBIFZlcnkgU2VjdXJlIEtleSBGb3IgSldUIEF1dGhlbnRpY2F0aW9u
+
+volumes:
+  todos_db_data:
